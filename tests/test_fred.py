@@ -68,6 +68,36 @@ class FredResolutionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fred._resolve_series_id(bad)
 
+    def test_length_bound_matches_freds_own_limit(self):
+        # FRED rejects a series_id longer than 25 chars with
+        # "Invalid value for variable series_id. Series IDs should be 25 or less
+        # alphanumeric characters."  The guard used to allow up to 30, so a
+        # 26-30 char input passed here and was then 400d by the API - the exact
+        # failure observed in live runs, which silently cost the news analyst its
+        # macro grounding.  This pins the bound to FRED's, so the window cannot
+        # reopen without failing a test.
+        at_limit = "A" * fred.MAX_SERIES_ID_LEN
+        self.assertEqual(fred._resolve_series_id(at_limit), at_limit)
+
+        oversize = "A" * (fred.MAX_SERIES_ID_LEN + 1)
+        with self.assertRaises(ValueError):
+            fred._resolve_series_id(oversize)
+
+    def test_uppercased_phrase_in_the_former_gap_never_reaches_the_api(self):
+        # Regression for the 26-30 char window: the phrase must be rejected
+        # locally, and get_macro_data must return guidance without calling _request.
+        phrase = "us consumer price index yoy"          # 27 chars uppercased
+        self.assertGreater(len(phrase.upper()), fred.MAX_SERIES_ID_LEN)
+        self.assertLessEqual(len(phrase.upper()), 30)   # inside the old gap
+
+        with self.assertRaises(ValueError):
+            fred._resolve_series_id(phrase)
+
+        with mock.patch.object(fred, "_request") as request:
+            out = fred.get_macro_data(phrase, "2026-01-01")
+            request.assert_not_called()
+        self.assertIn("not a known macro alias", out)
+
     def test_get_macro_data_returns_guidance_on_bad_indicator(self):
         # Invalid indicator -> actionable message, not a crash (no API call).
         out = fred.get_macro_data("bank of japan rate", "2026-01-01")
