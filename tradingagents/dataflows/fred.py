@@ -39,6 +39,12 @@ DEFAULT_LOOKBACK_DAYS = 365
 # daily series (yields, VIX) over a long window would otherwise flood context.
 MAX_ROWS = 40
 
+# FRED's documented maximum for the ``series_id`` parameter. Kept as a named
+# constant because the local guard must not be more permissive than the API:
+# "Bad Request.  Invalid value for variable series_id.  Series IDs should be 25
+# or less alphanumeric characters."
+MAX_SERIES_ID_LEN = 25
+
 # Curated human-friendly aliases -> FRED series IDs. Anything not listed is used
 # verbatim as a raw FRED series ID, so power users are never limited to this set.
 MACRO_SERIES = {
@@ -113,11 +119,23 @@ def _resolve_series_id(indicator: str) -> str:
     candidate = indicator.strip().upper()
     # FRED series IDs never contain whitespace and are short; reject anything
     # else (a descriptive phrase the LLM passed) rather than 400ing the API.
-    if not candidate or len(candidate) > 30 or any(c.isspace() for c in candidate):
+    #
+    # The length bound must match FRED's OWN limit, which is 25 characters.
+    # It used to be 30, and that gap was observable: an LLM-supplied phrase that
+    # uppercases to 26-30 characters (e.g. "consumer price index"), or a bad raw
+    # ID of that length, passed this guard and was then rejected by the API with
+    # "Invalid value for variable series_id. Series IDs should be 25 or less
+    # alphanumeric characters." - exactly the failure seen in live runs, which
+    # silently cost the news analyst its macro grounding (macro_data is optional,
+    # so the run degraded instead of failing). Rejecting here keeps the error
+    # message actionable and avoids a guaranteed-useless round trip.
+    if (not candidate or len(candidate) > MAX_SERIES_ID_LEN
+            or any(c.isspace() for c in candidate)):
         raise ValueError(
             f"'{indicator}' is not a known macro alias or a valid FRED series ID. "
             f"Use an alias (e.g. 'cpi', 'unemployment', '10y_treasury') or a raw "
-            f"FRED series ID (e.g. 'CPIAUCSL')."
+            f"FRED series ID of at most {MAX_SERIES_ID_LEN} characters "
+            f"(e.g. 'CPIAUCSL')."
         )
     return candidate
 

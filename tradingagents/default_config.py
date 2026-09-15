@@ -101,6 +101,17 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # provider/SDK at its own default (usually 2). Raise it to ride out bursty
     # 429 throttling on rate-limited deployments instead of aborting a run (#1091).
     "llm_max_retries": None,
+    # Per-request network timeout forwarded to every provider chat client.
+    # None leaves the SDK's own default (which is NO timeout for openai), and a
+    # peer that accepts the connection then stalls leaves the call blocked
+    # forever: measured live, two CF runs sat at ~0.3% CPU for 2h+/-19min with a
+    # silent child and half-closed sockets, producing no report at all. Every
+    # data vendor in dataflows/ already sets an explicit timeout for exactly
+    # this reason -- the LLM client was the one path left without one. 1800s is
+    # deliberately far above a slow high-effort reasoning call so it never
+    # truncates legitimate work, while still bounding a real stall well inside
+    # the selector bridge's per-ticker budget (7200s weekly default).
+    "timeout": 1800.0,
     # Cap on output tokens forwarded to every provider chat client. None leaves
     # each provider at its own default. Set it to bound a model that emits
     # unbounded reasoning/output and hangs or trips a gateway idle timeout
