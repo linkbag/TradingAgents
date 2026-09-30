@@ -27,6 +27,7 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_GOOGLE_THINKING_LEVEL":   "google_thinking_level",
     "TRADINGAGENTS_OPENAI_REASONING_EFFORT": "openai_reasoning_effort",
     "TRADINGAGENTS_ANTHROPIC_EFFORT":        "anthropic_effort",
+    "TRADINGAGENTS_GLM_REASONING_EFFORT":    "glm_reasoning_effort",
 }
 
 
@@ -98,6 +99,10 @@ def build_default_config() -> dict:
         "google_thinking_level": None,      # "high", "minimal", etc.
         "openai_reasoning_effort": None,    # "medium", "high", "low"
         "anthropic_effort": None,           # "high", "medium", "low"
+        # GLM (z.ai / BigModel) thinking depth. Forwarded as the OpenAI-compatible
+        # ``reasoning_effort`` field. GLM 4.7+ and the GLM-5.x line always think;
+        # the field selects low/high/max rather than toggling thinking on/off.
+        "glm_reasoning_effort": None,       # "high", "low", "max"
         # Sampling temperature, forwarded to every provider when set. None leaves
         # each provider at its own default. Lower values reduce run-to-run
         # variation on models that honor it; reasoning models largely ignore it
