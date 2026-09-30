@@ -112,6 +112,16 @@ def build_default_config() -> dict:
         # provider/SDK at its own default (usually 2). Raise it to ride out bursty
         # 429 throttling on rate-limited deployments instead of aborting a run (#1091).
         "llm_max_retries": None,
+        # Per-request network timeout forwarded to every provider chat client.
+        # None leaves the SDK's own default (which is NO timeout for openai); a
+        # peer that accepts the connection then stalls leaves the call blocked
+        # forever (measured live: runs sat at ~0.3% CPU with half-closed sockets
+        # and produced no report). Every data vendor in dataflows/ already sets
+        # an explicit timeout for exactly this reason. 1800s is deliberately far
+        # above a slow high-effort reasoning call so it never truncates
+        # legitimate work, while still bounding a real stall well inside the
+        # selector bridge's per-ticker budget.
+        "timeout": 1800.0,
         # Cap on output tokens forwarded to every provider chat client. None leaves
         # each provider at its own default. Set it to bound a model that emits
         # unbounded reasoning/output and hangs or trips a gateway idle timeout

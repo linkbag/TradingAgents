@@ -128,6 +128,14 @@ def build_llm_kwargs(config: dict) -> dict[str, Any]:
     if max_retries is not None and max_retries != "":
         kwargs["max_retries"] = _coerce_max_retries(max_retries)
 
+    # Per-request network timeout is cross-provider. Forward it only when
+    # explicitly set: the SDK default is NO timeout for openai, so a stalled
+    # endpoint blocks a call forever instead of erroring (observed live;
+    # 1800s bounds a real stall without truncating slow reasoning calls).
+    timeout = config.get("timeout")
+    if timeout is not None and timeout != "":
+        kwargs["timeout"] = float(timeout)
+
     # Output-token cap is cross-provider, but Gemini names it
     # ``max_output_tokens``; forward under the right key when set (#1204).
     max_tokens = config.get("max_tokens")
