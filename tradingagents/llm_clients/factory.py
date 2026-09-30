@@ -107,6 +107,14 @@ def build_llm_kwargs(config: dict) -> dict[str, Any]:
         if effort:
             kwargs["effort"] = effort
 
+    elif provider in ("glm", "glm-cn"):
+        # GLM (z.ai / BigModel) thinking depth: forwarded as the
+        # OpenAI-compatible ``reasoning_effort`` field. GLM 4.7+ and the
+        # GLM-5.x line always think; the field picks low/high/max.
+        glm_effort = config.get("glm_reasoning_effort")
+        if glm_effort:
+            kwargs["reasoning_effort"] = glm_effort
+
     # Sampling temperature is cross-provider: forward it whenever set.
     # float() here so a value coming from a TRADINGAGENTS_TEMPERATURE env
     # string ("0.2") works the same as a programmatic float.

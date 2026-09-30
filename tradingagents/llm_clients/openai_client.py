@@ -180,6 +180,21 @@ def _supports_reasoning_effort(model: str) -> bool:
     return bool(_OPENAI_REASONING_MODEL.match(model.lower().strip()))
 
 
+# Providers whose ``reasoning_effort`` field was verified to be accepted by
+# their own endpoint. GLM/Z.AI is NOT native OpenAI, so the gpt-5/o-series
+# regex above would otherwise strip the kwarg and silently drop the user's
+# effort setting. z.ai's GLM-5.x line always thinks and accepts
+# "low" / "high" / "max".
+_EFFORT_CAPABLE_PROVIDERS = frozenset({"glm", "glm-cn"})
+
+
+def _allows_reasoning_effort(provider: str, model: str) -> bool:
+    """Whether this provider+model combination accepts ``reasoning_effort``."""
+    if provider.lower() in _EFFORT_CAPABLE_PROVIDERS:
+        return True
+    return _supports_reasoning_effort(model)
+
+
 @dataclass(frozen=True)
 class ProviderSpec:
     """Declarative config for one OpenAI-compatible provider.
@@ -326,7 +341,7 @@ class OpenAIClient(BaseLLMClient):
         for key in _PASSTHROUGH_KWARGS:
             if key not in self.kwargs:
                 continue
-            if key == "reasoning_effort" and not _supports_reasoning_effort(self.model):
+            if key == "reasoning_effort" and not _allows_reasoning_effort(self.provider, self.model):
                 continue
             llm_kwargs[key] = self.kwargs[key]
 
